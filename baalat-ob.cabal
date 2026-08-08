@@ -69,7 +69,11 @@ library
                        BaalatOb.Post,
                        BaalatOb.Http,
                        BaalatOb.Wikidata,
-                       BaalatOb.Wikidata.Types
+                       BaalatOb.Wikidata.Types,
+                       BaalatOb.X.Types,
+                       BaalatOb.X.ApiTypes,
+                       BaalatOb.X,
+                       BaalatOb.Memorial
 
     -- Modules included in this library but not exported.
     -- other-modules:

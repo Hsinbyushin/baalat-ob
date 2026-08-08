@@ -1,5 +1,10 @@
 module Main where
 
+import BaalatOb.Memorial
+    ( MemorialPlan(..)
+    , createMemorialPlan
+    )
+
 import BaalatOb.Person
     ( Person(..)
     )
@@ -8,17 +13,26 @@ import BaalatOb.Wikidata
     ( fetchDeathAnniversaries
     )
 
+import BaalatOb.X.Types
+    ( XPost(..)
+    )
+
+import Control.Monad
+    ( forM_
+    )
+
+import Data.List
+    ( sortOn
+    )
+
 import Data.Time
-    ( getCurrentTime
+    ( UTCTime(..)
+    , fromGregorian
+    , getCurrentTime
+    , secondsToDiffTime
     , toGregorian
     , utctDay
     )
-
-import Control.Monad (forM_)
-
-import Data.List (sortOn)
-
-
 
 
 main :: IO ()
@@ -27,7 +41,7 @@ main = do
     putStrLn "Dry run"
     putStrLn ""
 
-    now <- Data.Time.getCurrentTime
+    now <- getCurrentTime
 
     let today =
             utctDay now
@@ -43,7 +57,77 @@ main = do
     people <-
         fetchDeathAnniversaries today
 
-    printSummary (sortByDeathYear people)
+    let sortedPeople =
+            sortByDeathYear people
+
+    printSummary sortedPeople
+
+    ------------------------------------------------------------------
+    -- Fake X posts for the offline dry run
+    ------------------------------------------------------------------
+
+    let fakePosts =
+            [ XPost
+                { xPostId = "103"
+                , xPostText = "Third post"
+                , xPostCreatedAt =
+                    UTCTime
+                        (fromGregorian 2026 8 8)
+                        (secondsToDiffTime (18 * 60 * 60))
+                }
+
+            , XPost
+                { xPostId = "102"
+                , xPostText = "Second post"
+                , xPostCreatedAt =
+                    UTCTime
+                        (fromGregorian 2026 8 8)
+                        (secondsToDiffTime (12 * 60 * 60))
+                }
+
+            , XPost
+                { xPostId = "101"
+                , xPostText = "First post"
+                , xPostCreatedAt =
+                    UTCTime
+                        (fromGregorian 2026 8 8)
+                        (secondsToDiffTime (8 * 60 * 60))
+                }
+            ]
+
+    putStrLn ""
+    putStrLn "Creating offline memorial plans..."
+    putStrLn ""
+
+    if null sortedPeople
+        then
+            putStrLn "No memorial candidates found."
+
+        else
+            forM_ sortedPeople $ \person -> do
+                let plan =
+                        createMemorialPlan
+                            3
+                            person
+                            fakePosts
+
+                printMemorialPlan plan
+                putStrLn ""
+
+
+-- Sorts memorial candidates by year of death, oldest first.
+sortByDeathYear :: [Person] -> [Person]
+sortByDeathYear =
+    sortOn deathYear
+
+
+-- Extracts the year of death from a person.
+deathYear :: Person -> Integer
+deathYear person =
+    let (year, _, _) =
+            toGregorian (dateOfDeath person)
+    in
+        year
 
 
 -- Prints a human-readable dry-run summary.
@@ -74,15 +158,41 @@ printPerson person = do
 
     putStrLn ""
 
--- Sorts memorial candidates by year of death, oldest first.
-sortByDeathYear :: [Person] -> [Person]
-sortByDeathYear =
-    sortOn deathYear
+
+-- Prints a memorial plan in a human-readable dry-run format.
+printMemorialPlan :: MemorialPlan -> IO ()
+printMemorialPlan plan = do
+    let person =
+            memorialPerson plan
+
+    putStrLn $
+        "Memorial plan for "
+            ++ name person
+
+    putStrLn $
+        "X account: @"
+            ++ xUsername person
+
+    putStrLn $
+        "Selected posts: "
+            ++ show (length (memorialPosts plan))
+
+    putStrLn ""
+
+    forM_ (memorialPosts plan) printMemorialPost
+
+    putStrLn "DRY RUN - no posts were reposted."
 
 
--- Extracts the year of death from a person.
-deathYear :: Person -> Integer
-deathYear person =
-    let (year, _, _) =
-            toGregorian (dateOfDeath person)
-    in year
+-- Prints one post contained in a memorial plan.
+printMemorialPost :: XPost -> IO ()
+printMemorialPost post = do
+    putStrLn $
+        "  "
+            ++ show (xPostCreatedAt post)
+
+    putStrLn $
+        "  "
+            ++ xPostText post
+
+    putStrLn ""

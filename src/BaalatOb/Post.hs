@@ -1,16 +1,15 @@
 module BaalatOb.Post
-    ( Post(..)
-    , selectMemorialPosts
+    ( selectMemorialPosts
     ) where
 
-import Data.Time (UTCTime)
+import BaalatOb.X.Types
+    ( XPost
+    )
 
-data Post = Post
-    { postId        :: String
-    , postCreatedAt :: UTCTime
-    }
-    deriving (Eq, Show)
-
-selectMemorialPosts :: Int -> [Post] -> [Post]
-selectMemorialPosts amount posts =
-    reverse (take amount posts)
+-- Selects the newest posts from a timeline and returns them
+-- in chronological order, oldest first.
+--
+-- X timelines are expected to be ordered newest first.
+selectMemorialPosts :: Int -> [XPost] -> [XPost]
+selectMemorialPosts count =
+    reverse . take count

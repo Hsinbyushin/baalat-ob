@@ -18,8 +18,7 @@ import BaalatOb.Person
 
 -- Functions and data types related to X posts.
 import BaalatOb.Post
-    ( Post(..)
-    , selectMemorialPosts
+    ( selectMemorialPosts
     )
 
 -- Types and functions for working with dates and times.
@@ -43,6 +42,20 @@ import qualified BaalatOb.Wikidata.Types as WD
 
 import BaalatOb.Wikidata
     ( bindingToPerson
+    )
+import qualified BaalatOb.X.ApiTypes as X
+
+import BaalatOb.X.Types
+    ( XPost(..)
+    , XUser(..)
+    , xPostFromData
+    , xPostsFromResponse
+    , xUserFromResponse
+    )
+
+import BaalatOb.Memorial
+    ( MemorialPlan(..)
+    , createMemorialPlan
     )
 
 -- The entry point of our test suite.
@@ -142,39 +155,54 @@ main = do
     -- secondsToDiffTime 0 therefore means exactly midnight.
 
     let post1 =
-            Post
-                "1"
-                (UTCTime
-                    (fromGregorian 2020 1 1)
-                    (secondsToDiffTime 0))
+            XPost
+                { xPostId = "1"
+                , xPostText = "Post 1"
+                , xPostCreatedAt =
+                    UTCTime
+                        (fromGregorian 2020 1 1)
+                        (secondsToDiffTime 0)
+                }
 
     let post2 =
-            Post
-                "2"
-                (UTCTime
-                    (fromGregorian 2021 1 1)
-                    (secondsToDiffTime 0))
+            XPost
+                { xPostId = "2"
+                , xPostText = "Post 2"
+                , xPostCreatedAt =
+                    UTCTime
+                        (fromGregorian 2021 1 1)
+                        (secondsToDiffTime 0)
+                }
 
     let post3 =
-            Post
-                "3"
-                (UTCTime
-                    (fromGregorian 2022 1 1)
-                    (secondsToDiffTime 0))
+            XPost
+                { xPostId = "3"
+                , xPostText = "Post 3"
+                , xPostCreatedAt =
+                    UTCTime
+                        (fromGregorian 2022 1 1)
+                        (secondsToDiffTime 0)
+                }
 
     let post4 =
-            Post
-                "4"
-                (UTCTime
-                    (fromGregorian 2023 1 1)
-                    (secondsToDiffTime 0))
+            XPost
+                { xPostId = "4"
+                , xPostText = "Post 4"
+                , xPostCreatedAt =
+                    UTCTime
+                        (fromGregorian 2023 1 1)
+                        (secondsToDiffTime 0)
+                }
 
     let post5 =
-            Post
-                "5"
-                (UTCTime
-                    (fromGregorian 2024 1 1)
-                    (secondsToDiffTime 0))
+            XPost
+                { xPostId = "5"
+                , xPostText = "Post 5"
+                , xPostCreatedAt =
+                    UTCTime
+                        (fromGregorian 2024 1 1)
+                        (secondsToDiffTime 0)
+                }
 
     -- We simulate the order in which X returns a user's timeline:
     -- newest post first, oldest post last.
@@ -435,6 +463,168 @@ main = do
     assert
         "should reject a Wikidata binding with an invalid date"
         (bindingToPerson invalidDateBinding == Nothing)
+
+    ------------------------------------------------------------------
+    -- Tests: X user JSON decoding
+    ------------------------------------------------------------------
+
+    -- This JSON simulates the response returned by the X API
+    -- when looking up a user by username.
+    let xUserJson =
+            LBS.pack
+                "{ \"data\": { \"id\": \"2244994945\", \"name\": \"X Developers\", \"username\": \"XDevelopers\" } }"
+
+    let decodedXUser =
+            decode xUserJson :: Maybe X.XUserResponse
+
+    let expectedXUser =
+            X.XUserResponse
+                (X.XUserData
+                    "2244994945"
+                    "X Developers"
+                    "XDevelopers")
+
+    assert
+        "should decode an X user response"
+        (decodedXUser == Just expectedXUser)
+
+
+    ------------------------------------------------------------------
+    -- Tests: converting X API data into domain data
+    ------------------------------------------------------------------
+
+    let xApiResponse =
+            X.XUserResponse
+                (X.XUserData
+                    "2244994945"
+                    "X Developers"
+                    "XDevelopers")
+
+    let expectedDomainUser =
+            XUser
+                { xUserId = "2244994945"
+                , xUserName = "XDevelopers"
+                }
+
+    assert
+        "should convert an X API response into an XUser"
+        (xUserFromResponse xApiResponse
+            == expectedDomainUser)
+
+        ------------------------------------------------------------------
+    -- Tests: X post JSON decoding
+    ------------------------------------------------------------------
+
+    -- This JSON simulates an X API response containing
+    -- three posts from a user's timeline.
+    let xPostsJson =
+            LBS.pack
+                "{\
+                \  \"data\": [\
+                \    {\
+                \      \"id\": \"103\",\
+                \      \"text\": \"Third post\",\
+                \      \"created_at\": \"2026-08-08T18:00:00Z\"\
+                \    },\
+                \    {\
+                \      \"id\": \"102\",\
+                \      \"text\": \"Second post\",\
+                \      \"created_at\": \"2026-08-08T12:00:00Z\"\
+                \    },\
+                \    {\
+                \      \"id\": \"101\",\
+                \      \"text\": \"First post\",\
+                \      \"created_at\": \"2026-08-08T08:00:00Z\"\
+                \    }\
+                \  ]\
+                \}"
+
+    let decodedXPosts =
+            decode xPostsJson :: Maybe X.XPostsResponse
+
+    assert
+        "should decode an X posts response"
+        (case decodedXPosts of
+            Just response ->
+                length (X.postsData response) == 3
+
+            Nothing ->
+                False)
+
+    ------------------------------------------------------------------
+    -- Tests: converting X post API data into domain data
+    ------------------------------------------------------------------
+
+    let apiPost =
+            X.XPostData
+                "101"
+                "First post"
+                (UTCTime
+                    (fromGregorian 2026 8 8)
+                    (secondsToDiffTime (8 * 60 * 60)))
+
+    let expectedPost =
+            XPost
+                { xPostId = "101"
+                , xPostText = "First post"
+                , xPostCreatedAt =
+                    UTCTime
+                        (fromGregorian 2026 8 8)
+                        (secondsToDiffTime (8 * 60 * 60))
+                }
+
+    assert
+        "should convert an X API post into an XPost"
+        (xPostFromData apiPost == expectedPost)
+
+    let apiPostsResponse =
+            X.XPostsResponse
+                [ X.XPostData
+                    "103"
+                    "Third post"
+                    (UTCTime
+                        (fromGregorian 2026 8 8)
+                        (secondsToDiffTime (18 * 60 * 60)))
+
+                , X.XPostData
+                    "102"
+                    "Second post"
+                    (UTCTime
+                        (fromGregorian 2026 8 8)
+                        (secondsToDiffTime (12 * 60 * 60)))
+
+                , X.XPostData
+                    "101"
+                    "First post"
+                    (UTCTime
+                        (fromGregorian 2026 8 8)
+                        (secondsToDiffTime (8 * 60 * 60)))
+                ]
+
+    assert
+        "should convert an X posts response into domain posts"
+        (length (xPostsFromResponse apiPostsResponse) == 3)
+
+    ------------------------------------------------------------------
+    -- Tests: memorial planning
+    ------------------------------------------------------------------
+
+    -- A memorial plan combines a person with the posts that should
+    -- be used during their memorial day.
+    let memorialPlan =
+            createMemorialPlan
+                3
+                davidBowie
+                timeline
+
+    assert
+        "memorial plan should contain the correct person"
+        (memorialPerson memorialPlan == davidBowie)
+
+    assert
+        "memorial plan should select three posts oldest first"
+        (memorialPosts memorialPlan
+            == [post3, post4, post5])
 
     ------------------------------------------------------------------
     -- Success
