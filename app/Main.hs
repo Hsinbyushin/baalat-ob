@@ -10,10 +10,15 @@ import BaalatOb.Wikidata
 
 import Data.Time
     ( getCurrentTime
+    , toGregorian
     , utctDay
     )
 
 import Control.Monad (forM_)
+
+import Data.List (sortOn)
+
+
 
 
 main :: IO ()
@@ -22,7 +27,7 @@ main = do
     putStrLn "Dry run"
     putStrLn ""
 
-    now <- getCurrentTime
+    now <- Data.Time.getCurrentTime
 
     let today =
             utctDay now
@@ -38,7 +43,7 @@ main = do
     people <-
         fetchDeathAnniversaries today
 
-    printSummary people
+    printSummary (sortByDeathYear people)
 
 
 -- Prints a human-readable dry-run summary.
@@ -68,3 +73,16 @@ printPerson person = do
             ++ xUsername person
 
     putStrLn ""
+
+-- Sorts memorial candidates by year of death, oldest first.
+sortByDeathYear :: [Person] -> [Person]
+sortByDeathYear =
+    sortOn deathYear
+
+
+-- Extracts the year of death from a person.
+deathYear :: Person -> Integer
+deathYear person =
+    let (year, _, _) =
+            toGregorian (dateOfDeath person)
+    in year
