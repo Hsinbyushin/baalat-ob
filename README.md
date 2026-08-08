@@ -1,7 +1,7 @@
 # Ba'alat 'Ob
 
 <p align="center">
-  <img src="assets/baalat-ob.png" alt="Ba'alat 'Ob logo" width="500">
+  <img src="assets/baalat-ob-banner.png" alt="Ba'alat 'Ob logo" width="500">
 </p>
 
 ## About
