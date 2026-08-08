@@ -1,14 +1,8 @@
-<p align="center">
-  <img src="assets/baalat-ob.png" alt="Ba'alat 'Ob logo" width="320">
-</p>
-
-<h1 align="center">Ba'alat 'Ob</h1>
+# Ba'alat 'Ob
 
 <p align="center">
-  <em>A Haskell bot for remembering the digital voices of the dead.</em>
+  <img src="assets/baalat-ob.png" alt="Ba'alat 'Ob logo" width="500">
 </p>
-
----
 
 ## About
 
@@ -69,6 +63,9 @@ select the final 5–10 posts
 order oldest → newest
     │
     ▼
+create memorial plan
+    │
+    ▼
 repost throughout the day
 ```
 
@@ -76,22 +73,34 @@ repost throughout the day
 
 Ba'alat 'Ob is currently under development.
 
+The Wikidata side of the application is live. The X side is currently
+developed and tested primarily with simulated API data, allowing the memorial
+planning pipeline to be exercised without performing real reposts or requiring
+paid API access.
+
 Implemented so far:
 
 - [x] Cabal project structure
-- [x] Domain model for people and posts
+- [x] Domain model for people and X posts
 - [x] Death-anniversary calculation
 - [x] Twenty-year eligibility window
 - [x] Selection and chronological ordering of memorial posts
 - [x] HTTP client
 - [x] Wikidata SPARQL queries
-- [x] JSON decoding with Aeson
+- [x] Wikidata JSON decoding with Aeson
 - [x] Conversion from Wikidata results into domain types
 - [x] Lookup of Wikidata entries with known X/Twitter usernames
-- [ ] Human-readable dry-run output
-- [ ] X API client
+- [x] X API response types
+- [x] X user JSON decoding
+- [x] X post JSON decoding
+- [x] Conversion from X API types into domain types
+- [x] X user lookup client
+- [x] Memorial plan domain model
+- [x] Human-readable dry-run output
+- [x] Offline memorial planning with simulated X posts
+- [ ] Live X timeline retrieval
 - [ ] Account verification
-- [ ] Timeline retrieval
+- [ ] Repost execution
 - [ ] Repost scheduling
 - [ ] Persistent state
 - [ ] Production deployment
@@ -118,8 +127,11 @@ Run the application:
 cabal run baalat-ob
 ```
 
-At the current stage, running the application performs a live Wikidata query
-and prints the resulting memorial candidates.
+At the current stage, running the application performs a live Wikidata query,
+finds memorial candidates for the current date, sorts them by year of death,
+and creates human-readable memorial plans using simulated X posts.
+
+No posts are published or reposted during the dry run.
 
 ## Project structure
 
@@ -132,10 +144,15 @@ baalat-ob/
 ├── src/
 │   └── BaalatOb/
 │       ├── Http.hs
+│       ├── Memorial.hs
 │       ├── Person.hs
 │       ├── Post.hs
 │       ├── Wikidata.hs
-│       └── Wikidata/
+│       ├── Wikidata/
+│       │   └── Types.hs
+│       ├── X.hs
+│       └── X/
+│           ├── ApiTypes.hs
 │           └── Types.hs
 ├── test/
 │   └── Main.hs
@@ -163,10 +180,56 @@ WikidataBinding
 Person
 ```
 
-The rest of the application can therefore work with its own types without
-having to know how Wikidata represents its data.
+The same separation is used for X API data:
 
-The same approach is intended for the X API.
+```text
+X JSON
+  ↓
+XUserResponse / XPostsResponse
+  ↓
+XUserData / XPostData
+  ↓
+XUser / XPost
+```
+
+The rest of the application can therefore work with its own domain types
+without having to know how an external API represents its data.
+
+Memorial planning is kept separate from network access:
+
+```text
+Person + [XPost]
+       ↓
+createMemorialPlan
+       ↓
+MemorialPlan
+```
+
+This makes the core planning logic pure and allows it to be tested without
+making HTTP requests or performing real reposts.
+
+## Dry-run development
+
+The X integration is currently exercised using simulated post data.
+
+This allows the application to test the complete planning flow:
+
+```text
+live Wikidata data
+        ↓
+memorial candidates
+        ↓
+simulated X posts
+        ↓
+selectMemorialPosts
+        ↓
+MemorialPlan
+        ↓
+human-readable dry run
+```
+
+The simulated X data will eventually be replaced by live timeline retrieval
+without changing the core memorial-planning logic.
 
 ## Development
 
