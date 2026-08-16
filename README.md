@@ -8,20 +8,30 @@
 
 **Ba'alat 'Ob** is an experimental bot written in Haskell.
 
-Once or twice a day, the bot is intended to search Wikidata for notable people
-whose death anniversary falls on the current date and whose death occurred
-within the last twenty years.
+The project explores the idea of finding notable people whose death anniversary
+falls on the current date and briefly bringing their past online presence back
+into view.
 
-For people with a known X/Twitter account, the bot will retrieve a small
-selection of their final posts and repost them throughout the day, starting
-with the oldest selected post and ending with their last published post.
+Ba'alat 'Ob queries Wikidata for people who died on the current calendar date
+within a defined eligibility window. Where available, Wikidata is also used to
+identify known X/Twitter usernames associated with those people.
 
-The project is being developed incrementally, both as a working bot and as an
-exercise in building a real-world application in Haskell.
+The original concept was to retrieve a small selection of a person's final
+posts from X and repost them throughout the anniversary of their death,
+starting with the oldest selected post and ending with their last published
+post.
+
+Development of the live X client has since been discontinued because access to
+the required X API functionality incurs usage costs. The project therefore
+currently concentrates on the Wikidata integration, domain modelling,
+memorial-planning logic, and an offline dry-run using simulated X posts.
+
+The project is being developed incrementally, both as an experimental
+application and as an exercise in building a real-world program in Haskell.
 
 ## Name
 
-The name **Ba'alat 'Ob** (בַּעֲלַת־אוֹב) refers to the biblical figure commonly
+The name **Ba'alat 'Ob** (בַּעֲלַת אוֹב) refers to the biblical figure commonly
 known as the *Witch of Endor* or *Medium of Endor* in the First Book of Samuel.
 
 In the narrative, King Saul asks the woman to call forth the dead prophet
@@ -32,7 +42,7 @@ from the past back into the present.
 
 ## How it works
 
-The intended pipeline is:
+The currently implemented pipeline is:
 
 ```text
 current date
@@ -46,64 +56,83 @@ Wikidata SPARQL query
     │
     ▼
 find people with known
-X/Twitter accounts
+X/Twitter usernames
     │
     ▼
 decode JSON into
 typed Haskell values
     │
     ▼
-retrieve recent posts
-from the account
+Person
     │
     ▼
-select the final 5–10 posts
+simulated X posts
+    │
+    ▼
+select memorial posts
     │
     ▼
 order oldest → newest
     │
     ▼
-create memorial plan
+create MemorialPlan
     │
     ▼
-repost throughout the day
+human-readable dry run
 ```
+
+No posts are published or reposted by the current application.
 
 ## Current status
 
 Ba'alat 'Ob is currently under development.
 
-The Wikidata side of the application is live. The X side is currently
-developed and tested primarily with simulated API data, allowing the memorial
-planning pipeline to be exercised without performing real reposts or requiring
-paid API access.
+The Wikidata side of the application works with live data. Memorial planning
+and post selection can be exercised offline using simulated X post data.
 
 Implemented so far:
 
-- [x] Cabal project structure
-- [x] Domain model for people and X posts
-- [x] Death-anniversary calculation
-- [x] Twenty-year eligibility window
-- [x] Selection and chronological ordering of memorial posts
-- [x] HTTP client
-- [x] Wikidata SPARQL queries
-- [x] Wikidata JSON decoding with Aeson
-- [x] Conversion from Wikidata results into domain types
-- [x] Lookup of Wikidata entries with known X/Twitter usernames
-- [x] X API response types
-- [x] X user JSON decoding
-- [x] X post JSON decoding
-- [x] Conversion from X API types into domain types
-- [x] X user lookup client
-- [x] Memorial plan domain model
-- [x] Human-readable dry-run output
-- [x] Offline memorial planning with simulated X posts
-- [ ] Live X timeline retrieval
-- [ ] Account verification
-- [ ] Repost execution
-- [ ] Repost scheduling
-- [ ] Persistent state
-- [ ] Production deployment
+* [x] Cabal project structure
+* [x] Domain model for people and posts
+* [x] Death-anniversary calculation
+* [x] Twenty-year eligibility window
+* [x] Selection and chronological ordering of memorial posts
+* [x] HTTP client
+* [x] Wikidata SPARQL queries
+* [x] Wikidata JSON decoding with Aeson
+* [x] Conversion from Wikidata results into domain types
+* [x] Lookup of Wikidata entries with known X/Twitter usernames
+* [x] X user and post domain types
+* [x] X API response types
+* [x] X user JSON decoding
+* [x] X post JSON decoding
+* [x] Conversion from X API representations into domain types
+* [x] Experimental X user lookup client
+* [x] Memorial plan domain model
+* [x] Human-readable dry-run output
+* [x] Offline memorial planning with simulated X posts
+* [ ] Persistent state
+* [ ] Production scheduling
+* [ ] Production deployment
+
+### X API development
+
+Development of the live X integration has been **discontinued**.
+
+An initial X client, API response types, JSON decoding, and user lookup were
+implemented while exploring the integration. Live API access was then found
+to require paid API usage for the functionality needed by the project.
+
+Because Ba'alat 'Ob is an experimental and educational project, further
+development of the X client is currently not considered worth the additional
+API cost.
+
+The existing X-related domain and API types remain useful for modelling and
+testing the intended architecture. Simulated X posts are therefore used for
+the offline memorial-planning pipeline.
+
+Live timeline retrieval, reposting, and X-based scheduling are no longer part
+of the current development roadmap.
 
 ## Building
 
@@ -131,7 +160,7 @@ At the current stage, running the application performs a live Wikidata query,
 finds memorial candidates for the current date, sorts them by year of death,
 and creates human-readable memorial plans using simulated X posts.
 
-No posts are published or reposted during the dry run.
+No X API access is required for the normal dry run.
 
 ## Project structure
 
@@ -163,10 +192,11 @@ baalat-ob/
 
 ## Design
 
-Ba'alat 'Ob deliberately separates external API representations from its
-internal domain model.
+Ba'alat 'Ob deliberately separates representations received from external APIs
+from its internal domain model.
 
-For example, raw Wikidata JSON is first decoded into dedicated Wikidata types:
+For example, raw Wikidata JSON is decoded into dedicated Wikidata types before
+being converted into a `Person`:
 
 ```text
 JSON
@@ -180,7 +210,7 @@ WikidataBinding
 Person
 ```
 
-The same separation is used for X API data:
+The experimental X integration follows the same approach:
 
 ```text
 X JSON
@@ -192,44 +222,58 @@ XUserData / XPostData
 XUser / XPost
 ```
 
-The rest of the application can therefore work with its own domain types
-without having to know how an external API represents its data.
+This allows the rest of the application to operate on its own domain types
+without depending directly on the representation chosen by an external API.
 
-Memorial planning is kept separate from network access:
+The core memorial-planning logic is also kept separate from network access:
 
 ```text
 Person + [XPost]
-       ↓
+       │
+       ▼
 createMemorialPlan
-       ↓
+       │
+       ▼
 MemorialPlan
 ```
 
-This makes the core planning logic pure and allows it to be tested without
-making HTTP requests or performing real reposts.
+`createMemorialPlan` is pure: it performs no HTTP requests and has no external
+side effects.
+
+This separation allows the central idea of the bot to be developed and tested
+even though live X integration is no longer being pursued.
 
 ## Dry-run development
 
-The X integration is currently exercised using simulated post data.
-
-This allows the application to test the complete planning flow:
+The current application combines live Wikidata data with simulated X posts.
 
 ```text
-live Wikidata data
-        ↓
+live Wikidata
+      │
+      ▼
 memorial candidates
-        ↓
-simulated X posts
-        ↓
-selectMemorialPosts
-        ↓
-MemorialPlan
-        ↓
-human-readable dry run
+      │
+      ▼
+Person
+      │
+      ├──────────────┐
+      │              │
+      ▼              ▼
+X username     simulated X posts
+                     │
+                     ▼
+            selectMemorialPosts
+                     │
+                     ▼
+               MemorialPlan
+                     │
+                     ▼
+            human-readable output
 ```
 
-The simulated X data will eventually be replaced by live timeline retrieval
-without changing the core memorial-planning logic.
+The simulated posts are deliberately simple. Their purpose is not to reproduce
+the behaviour of X, but to exercise the application's domain and orchestration
+logic without requiring external API access.
 
 ## Development
 
@@ -247,19 +291,51 @@ commit
 next feature
 ```
 
-This repository is also intended as a practical exploration of Haskell,
-including its type system, pure and impure code, HTTP communication, JSON
-decoding, API integration and eventually scheduling and persistence.
+The repository is also intended as a practical exploration of Haskell,
+including:
+
+* algebraic data types and records
+* pure and impure code
+* `IO`
+* HTTP communication
+* JSON decoding with Aeson
+* modelling external APIs
+* transformation into domain types
+* testing
+* application architecture
+* scheduling and persistence
+
+## Future direction
+
+With live X integration removed from the current roadmap, future development
+can concentrate on the parts of Ba'alat 'Ob that do not depend on paid social
+media APIs.
+
+Possible areas include:
+
+* improving Wikidata candidate selection
+* handling duplicate or ambiguous social-media identities
+* improving memorial-plan generation
+* extracting simulated services from `Main`
+* persistent state
+* scheduling
+* richer dry-run and reporting output
+* support for alternative public data sources
+
+The original X-based concept remains the architectural inspiration for the
+project, even though live reposting is no longer an immediate goal.
 
 ## Disclaimer
 
 Ba'alat 'Ob is an experimental project.
 
 It is not affiliated with Wikimedia, Wikidata, X, or the estates of any people
-referenced by the bot.
+referenced by the application.
 
-Automated posting and reposting will only be enabled in accordance with the
-applicable APIs, platform policies and access restrictions.
+The presence of an X/Twitter username in Wikidata does not imply that the
+account has been independently verified by Ba'alat 'Ob.
+
+No automated posting or reposting is currently performed.
 
 ## License
 
